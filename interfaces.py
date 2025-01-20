@@ -1,18 +1,12 @@
 from abc import ABC, abstractmethod
+from numpy import isnan
 
-class IDisturbance(ABC):
-    """
-    Class to represent a disturbance in the system. 
-    """
-    
+class IDisturbance(ABC):    
     @abstractmethod
     def disturb(self, control_value: float):
         pass
 
 class IPlant(ABC):
-    """
-    Interface for a plant
-    """
 
     def __init__(self, state: float, disturbance: IDisturbance):
         """
@@ -36,9 +30,27 @@ class IPlant(ABC):
         pass
 
 class IController(ABC):
-    """
-    Interface for a controller
-    """
+    def __init__(self):
+        self.derivative = 0.0
+        self.integral = 0.0
+        self.prev_error = 0.0
+        self.MSE = 0.0
+        self.steps = 0
+
+    @abstractmethod
+    def set_weights(self, weights):
+        """
+        Set the weights of the controller
+        """
+        pass
+
+    @abstractmethod
+    def get_init_weights(self):
+        """
+        Get the initial weights of the controller
+        """
+        pass
+
     @abstractmethod
     def control(self, error) -> float:
         """
@@ -47,11 +59,37 @@ class IController(ABC):
         pass
 
     @abstractmethod
-    def reset(self):
+    def log_data(self, history: dict):
         """
-        Reset the controller state
+        Log data to the history dictionary
         """
         pass
 
+    def step(self, error, dt):
+        # check for overflow
+        self.derivative = (error - self.prev_error) / dt
+        self.integral = self.integral + error * dt
+        self.prev_error = error
+        self.MSE = self.MSE + (error ** 2)
+        self.steps += 1
+
+    def get_MSE(self):
+        return self.MSE / self.steps
+    
+    def reset(self):
+        self.derivative = 0.0
+        self.integral = 0.0
+        self.prev_error = 0.0
+        self.MSE = 0.0
+        self.steps = 0
+
+    def update_weights(self, weights, gradients, d: int = -1, lr: float = 0.01):
+        # check if gradients are nan
+        assert not any(isnan(g).any() for g in gradients), "Gradients are NaN"
+
+        for i in range(len(weights)):
+            weights[i] = weights[i] + d * lr * gradients[i]
+        self.set_weights(weights)
+        return weights
 
 
