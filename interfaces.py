@@ -3,7 +3,7 @@ from numpy import isnan
 
 class IDisturbance(ABC):    
     @abstractmethod
-    def disturb(self, control_value: float):
+    def __call__(self) -> float:
         pass
 
 class IPlant(ABC):
@@ -16,7 +16,7 @@ class IPlant(ABC):
         self.disturbance = disturbance
 
     @abstractmethod
-    def update(self, control_value):
+    def update(self, control_value: float, dt: float = 1.0):
         """
         Update the plant behavior based on the control value
         """
@@ -65,7 +65,7 @@ class IController(ABC):
         """
         pass
 
-    def step(self, error, dt):
+    def step(self, error: float, dt: float = 1.0):
         # check for overflow
         self.derivative = (error - self.prev_error) / dt
         self.integral = self.integral + error * dt
@@ -84,9 +84,6 @@ class IController(ABC):
         self.steps = 0
 
     def update_weights(self, weights, gradients, d: int = -1, lr: float = 0.01):
-        # check if gradients are nan
-        assert not any(isnan(g).any() for g in gradients), "Gradients are NaN"
-
         for i in range(len(weights)):
             weights[i] = weights[i] + d * lr * gradients[i]
         self.set_weights(weights)

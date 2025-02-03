@@ -77,7 +77,7 @@ class NeuralController(IController):
         self.weights = weights
 
     def get_init_weights(self):
-        return [jnp.concatenate([np.random.uniform(-1, 1, (m, n)), np.random.uniform(-1, 1, (m, 1))], axis=1) for m, n in zip(self.layer_sizes[1:], self.layer_sizes[:-1])]
+        return [jnp.concatenate([self.glorot_uniform((m, n)), self.glorot_uniform((m, 1))], axis=1) for m, n in zip(self.layer_sizes[1:], self.layer_sizes[:-1])]
 
     def control(self, error: float, dt: float = 1.0):
         self.step(error, dt)
@@ -86,3 +86,14 @@ class NeuralController(IController):
     def log_data(self, history: dict):
         pass
     
+    def glorot_normal(self, shape):
+        std = np.sqrt(2.0 / (shape[0] + shape[1]))
+        return np.random.normal(0, std, size=shape)
+    
+    def glorot_uniform(self, shape):
+        # Calculate the standard deviation
+        sd = np.sqrt(6.0 / (shape[0] + shape[1]))
+        
+        # Initialize weights from a uniform distribution
+        weights = np.random.uniform(-sd, sd, (shape[0], shape[1]))
+        return weights
