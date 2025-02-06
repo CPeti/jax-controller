@@ -7,7 +7,7 @@ class Consys():
     Class for connecting the control system to the simulator
     """
 
-    def __init__(self, plant: IPlant, controller: IController, target: float, dt: float = 1.0, lr: float = 0.01, jit: bool = True):
+    def __init__(self, plant: IPlant, controller: IController, target: float, dt: float = 1.0, lr: float = 0.01, steps: int = 100, jit: bool = True):
         """
         Initialize the control system with a plant and controller
         """
@@ -16,6 +16,7 @@ class Consys():
         self.target = target
         self.dt = dt
         self.lr = lr
+        self.steps_per_epoch = steps
 
         self.gradfunc = jax.value_and_grad(self.run_one_epoch, argnums=0)
         if jit:
@@ -25,18 +26,19 @@ class Consys():
             "MSEs": []
         }
 
-    def run_one_epoch(self, weights, steps: int = 100):
+    def run_one_epoch(self, weights):
         self.plant.reset()
         self.controller.reset()
         self.controller.set_weights(weights)
         error = 0
-        for _ in range(steps):
+
+        for _ in range(self.steps_per_epoch):
             control = self.controller.control(error, self.dt)
             self.plant.update(control, self.dt)
             error = self.target - self.plant.state
         return self.controller.get_MSE()
     
-    def run(self, epochs: int = 100, reset: bool = True):
+    def run(self, epochs, reset: bool = True):
         """
         Run the control system for a number of epochs
         """
@@ -51,13 +53,12 @@ class Consys():
                 weights = self.controller.get_init_weights() # reset weights if all zero
                 self.reset_history()
                 i = 0
-                print("Invalid gradient, resetting weights")
+                #print("Invalid gradient, resetting weights")
                 continue
             weights = self.controller.update_weights(weights, gradients, lr=self.lr)
             self.controller.log_data(self.history)
             self.history["MSEs"].append(mse)
             i += 1
-        print(gradients)
 
     def reset_history(self):
         self.history = {
@@ -74,6 +75,7 @@ def gradient_invalid(matrices):
         zero_count = np.count_nonzero(matrix == 0)  # Count of zero elements
         
         # Check if zero count equals total elements
-        if zero_count >= total_elements / 2:
+        if zero_count >= total_elements * 2/3 :
             return True
     return False
+

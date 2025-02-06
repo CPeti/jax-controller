@@ -46,13 +46,12 @@ class PIDController(IController):
         return history       
 
 class NeuralController(IController):
-    def __init__(self, layer_sizes: list, activation: str = 'relu'):
+    def __init__(self, layer_sizes: list, activation: str = 'relu', layer_init: str = 'glorot_uniform', param_range: any = [-1.0, 1.0]):
         super().__init__()
         # assert that the input layer size is 3 and the output layer size is 1
         assert layer_sizes[0] == 3, "Input layer size must be 3"
         assert layer_sizes[-1] == 1, "Output layer size must be 1"
         self.layer_sizes = layer_sizes
-        self.weights = self.get_init_weights()
         
         if activation == 'relu':
             self.activation = lambda x: jnp.maximum(0, x)
@@ -64,6 +63,11 @@ class NeuralController(IController):
             self.activation = lambda x: x
         else:
             raise ValueError("Invalid activation function")
+        
+        self.param_range = param_range
+        self.layer_init = layer_init
+        
+        self.weights = self.get_init_weights()
 
     def forward(self, inp):
         x = inp
@@ -77,7 +81,21 @@ class NeuralController(IController):
         self.weights = weights
 
     def get_init_weights(self):
-        return [jnp.concatenate([self.glorot_uniform((m, n)), self.glorot_uniform((m, 1))], axis=1) for m, n in zip(self.layer_sizes[1:], self.layer_sizes[:-1])]
+        if self.layer_init == 'glorot_uniform':
+            return [
+                jnp.concatenate([self.glorot_uniform((m, n)), self.glorot_uniform((m, 1))], axis=1) 
+                for m, n in zip(self.layer_sizes[1:], self.layer_sizes[:-1])
+            ]
+        elif self.layer_init == 'glorot_normal':
+            return [
+                jnp.concatenate([self.glorot_normal((m, n)), self.glorot_normal((m, 1))], axis=1) 
+                for m, n in zip(self.layer_sizes[1:], self.layer_sizes[:-1])
+            ]
+        else:
+            return [
+                jnp.concatenate([jnp.random.uniform(self.param_range[0], self.param_range[1], (m, n)), jnp.random.uniform(self.param_range[0], self.param_range[1], (m, 1))], axis=1) 
+                for m, n in zip(self.layer_sizes[1:], self.layer_sizes[:-1])
+            ]
 
     def control(self, error: float, dt: float = 1.0):
         self.step(error, dt)

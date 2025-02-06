@@ -1,5 +1,6 @@
 from interfaces import IPlant, IDisturbance
 import jax.numpy as jnp
+from collections import deque
 
 class Bathtub(IPlant):
     def __init__(self, state: float, disturbance: IDisturbance, area: float = 1.0, exit_area: float = 0.01):
